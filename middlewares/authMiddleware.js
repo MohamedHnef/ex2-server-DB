@@ -20,7 +20,7 @@ exports.authMiddleware = {
 
     isFaculty(req, res, next) {
         if (req.user.userType !== 'faculty') {
-            return res.status(403).json({ message: 'Access denied' });
+            return res.status(403).json({ message: 'Access denied Faculty only.' });
         }
         next();
     },

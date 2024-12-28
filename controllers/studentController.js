@@ -152,4 +152,35 @@ exports.studentController = {
         await course.save();
         logger.info(`Registration completed for student ${student.studentId} and course ${course.courseId}`);
     },
+
+    async deregisterFromCourse(req, res) {
+        try {
+            const { studentId, courseId } = req.body;
+            logger.info(`Deregistering student ${studentId} from course ${courseId}`);
+    
+            const student = await this.findStudent(studentId, res);
+            if (!student) return;
+    
+            const course = await this.findCourse(courseId, res);
+            if (!course) return;
+    
+            if (!this.isAlreadyRegistered(student, course)) {
+                logger.warn(`Student ${studentId} is not registered for course ${courseId}`);
+                return res.status(400).json({ message: 'Student is not registered for this course' });
+            }
+    
+            student.registeredCourses = student.registeredCourses.filter(c => !c._id.equals(course._id));
+            course.enrolledStudents = course.enrolledStudents.filter(s => !s._id.equals(student._id));
+    
+            await student.save();
+            await course.save();
+    
+            logger.info(`Deregistration successful: Student ${studentId} -> Course ${courseId}`);
+            res.status(200).json({ message: 'Deregistration successful', student, course });
+        } catch (error) {
+            logger.error(`Error during deregistration: ${error.message}`);
+            res.status(500).json({ error: error.message });
+        }
+    }
+    
 };

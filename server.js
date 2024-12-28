@@ -4,6 +4,14 @@ const app = express();
 
 const port = process.env.PORT || 3000;
 
+const { courseRouter } = require('./routers/courseRouter');
+const { studentRouter } = require('./routers/studentRouter');
+const { facultyRouter } = require('./routers/facultyRouter');
+
+app.use('/api/courses', courseRouter);
+app.use('/api/students', studentRouter);
+app.use('/api/faculty', facultyRouter);
+
 app.use(express.json());
 
 app.use(logger("dev"));

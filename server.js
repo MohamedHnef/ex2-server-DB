@@ -8,9 +8,14 @@ const { courseRouter } = require('./routers/courseRouter');
 const { studentRouter } = require('./routers/studentRouter');
 const { facultyRouter } = require('./routers/facultyRouter');
 
+const { authRouter } = require('./routers/authRouter');
+const { authMiddleware } = require('./middlewares/authMiddleware');
+
 app.use('/api/courses', courseRouter);
 app.use('/api/students', studentRouter);
 app.use('/api/faculty', facultyRouter);
+
+app.use('/api/auth', authRouter);
 
 app.use(express.json());
 

@@ -20,6 +20,7 @@ exports.authMiddleware = {
 
     isFaculty(req, res, next) {
         if (req.user.userType !== 'faculty') {
+            logger.warn(`Access denied: User ${req.user.id} attempted to access faculty-only resource`);
             return res.status(403).json({ message: 'Access denied Faculty only.' });
         }
         next();

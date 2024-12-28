@@ -9,16 +9,25 @@ exports.authController = {
         try {
             const { userType, ...userData } = req.body;
 
+            // Validate userType
             if (!['student', 'faculty'].includes(userType)) {
                 return res.status(400).json({ message: 'Invalid user type' });
             }
 
+            // Hash password
             userData.password = await bcrypt.hash(userData.password, 10);
 
             let user;
             if (userType === 'student') {
+                // Generate a unique studentId
+                const maxId = (await Student.find().sort({ studentId: -1 }).limit(1))[0]?.studentId || 0;
+                userData.studentId = maxId + 1;
+
                 user = new Student(userData);
             } else {
+                const maxId = (await Faculty.find().sort({ facultyId: -1 }).limit(1))[0]?.facultyId || 0;
+                userData.facultyId = maxId + 1;
+
                 user = new Faculty(userData);
             }
 

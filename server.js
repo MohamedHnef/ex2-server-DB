@@ -11,23 +11,25 @@ const { facultyRouter } = require('./routers/facultyRouter');
 const { authRouter } = require('./routers/authRouter');
 const { authMiddleware } = require('./middlewares/authMiddleware');
 
-app.use('/api/courses', courseRouter);
-app.use('/api/students', studentRouter);
-app.use('/api/faculty', facultyRouter);
-
-app.use('/api/auth', authRouter);
-
 app.use(express.json());
 
 app.use(logger("dev"));
+
+app.use('/api/auth', authRouter);
+app.use('/api/courses', authMiddleware.verifyToken, courseRouter);
+app.use('/api/students', authMiddleware.verifyToken, studentRouter);
+app.use('/api/faculty', authMiddleware.verifyToken, facultyRouter);
+
+
+app.get('/', (req, res) => {
+    res.send('Welcome to the Course Registration API!');
+});
 
 app.use((req, res) => {
     res.status(400).send("Page wasn't found");
 });
 
-app.get('/', (req, res) => {
-    res.send('Welcome to the Course Registration API!');
-});
+
 
 app.listen(port, () => {
     console.log(`listening on port ${port}`);

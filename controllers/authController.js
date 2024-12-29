@@ -35,22 +35,28 @@ exports.authController = {
     async login(req, res) {
         try {
             const { userType, email, password } = req.body;
-            logger.info(`Login request received for userType: ${userType}, email: ${email}`);
-
-            if (!isValidUserType(userType)) {
-                logger.warn(`Invalid userType during login: ${userType}`);
+    
+            if (!['student', 'faculty'].includes(userType)) {
                 return res.status(400).json({ message: 'Invalid user type' });
             }
-
-            const user = await findUserByEmail(userType, email);
+    
+            let user;
+            if (userType === 'student') {
+                user = await Student.findOne({ email });
+            } else {
+                user = await Faculty.findOne({ email });
+            }
+    
             if (!user || !(await bcrypt.compare(password, user.password))) {
-                logger.warn(`Invalid email or password for email: ${email}`);
                 return res.status(401).json({ message: 'Invalid email or password' });
             }
-
-            const token = generateToken(user);
-            logger.info(`Login successful for userType: ${userType}, email: ${email}`);
-
+    
+            const token = jwt.sign(
+                { id: user._id, userType }, 
+                JWT_SECRET,
+                { expiresIn: '10m' }
+            );
+    
             res.status(200).json({ message: 'Login successful', token });
         } catch (error) {
             logger.error(`Error during login: ${error.message}`);

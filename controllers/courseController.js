@@ -7,17 +7,22 @@ exports.courseController = {
         try {
             logger.info('Adding a new course');
     
-            const courseData = req.body; 
-            const course = new Course(courseData);
-            await course.save();
+            
+            const lastCourse = await Course.findOne().sort({ courseId: -1 });
+            const nextCourseId = lastCourse ? lastCourse.courseId + 1 : 1;
+    
+            const courseData = { ...req.body, courseId: nextCourseId }; 
+            const course = new Course(courseData); 
+            await course.save(); 
     
             logger.info(`Course added successfully with ID: ${course.courseId}`);
-            res.status(201).json(course);
+            res.status(201).json(course); 
         } catch (error) {
             logger.error(`Error adding course: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
-    },
+    }
+    ,
     
     async updateCourse(req, res) {
         try {

@@ -26,25 +26,25 @@ exports.studentController = {
         }
     },
 
-    async deregisterFromCourse(req, res) {
+     deregisterFromCourse: async (req, res) => {
         try {
             const { studentId, courseId } = req.body;
             logger.info(`Deregistering student ${studentId} from course ${courseId}`);
 
-            const student = await this.findStudentOrFail(studentId, res);
+            const student = await exports.studentController.findStudentOrFail(studentId, res);
             if (!student) return;
 
-            const course = await this.findCourseOrFail(courseId, res);
+            const course = await exports.studentController.findCourseOrFail(courseId, res);
             if (!course) return;
 
             
-            if (!this.isAlreadyRegistered(student, course)) {
+            if (!(exports.studentController.isAlreadyRegistered(student, course))) {
                 logger.warn(`Student ${studentId} is not registered for course ${courseId}`);
                 return res.status(400).json({ message: 'Student is not registered for this course' });
             }
 
             
-            await this.deregisterStudentFromCourse(student, course);
+            await exports.studentController.deregisterStudentFromCourse(student, course);
 
             logger.info(`Deregistration successful: Student ${studentId} -> Course ${courseId}`);
             res.status(200).json({ message: 'Deregistration successful', student, course });

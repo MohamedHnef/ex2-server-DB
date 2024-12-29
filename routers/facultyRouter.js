@@ -3,8 +3,7 @@ const { facultyController } = require('../controllers/facultyController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 const router = express.Router();
 
-
-router.get('/', authMiddleware.verifyToken, authMiddleware.isFaculty, facultyController.getAllFaculty);
-router.get('/:id', authMiddleware.verifyToken, authMiddleware.isFaculty, facultyController.getFaculty);
+router.get('/', authMiddleware.verifyToken, authMiddleware.isFaculty, facultyController.getAllCoursesAndStudents);
+router.get('/:courseId', authMiddleware.verifyToken, authMiddleware.isFaculty, facultyController.getCourseAndStudents);
 
 module.exports = { facultyRouter: router };

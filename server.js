@@ -29,8 +29,6 @@ app.use((req, res) => {
     res.status(400).send("Page wasn't found");
 });
 
-
-
 app.listen(port, () => {
     console.log(`listening on port ${port}`);
 });

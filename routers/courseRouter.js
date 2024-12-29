@@ -11,6 +11,6 @@ router.get('/', authMiddleware.verifyToken, authMiddleware.isFaculty, courseCont
 router.get('/:id/students', authMiddleware.verifyToken, authMiddleware.isFaculty, courseController.getCourseAndStudents);
 
 router.post('/:id/register', authMiddleware.verifyToken, authMiddleware.isStudent, courseController.registerForCourse);
-router.delete('/:id/register', authMiddleware.verifyToken, authMiddleware.isStudent, courseController.deregisterFromCourse);
+router.delete('/:id/deregister', authMiddleware.verifyToken, authMiddleware.isStudent, courseController.deregisterFromCourse);
 
 module.exports = { courseRouter: router };

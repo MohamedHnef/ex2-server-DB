@@ -63,33 +63,24 @@ exports.courseController = {
     async registerForCourse(req, res) {
         try {
             const { id: courseId } = req.params;
-            const studentId = req.user.id; 
+            const studentId = req.user.id;
+    
             logger.info(`Registering student ${studentId} for course ${courseId}`);
-
-            const course = await Course.findOne({ courseId });
-            if (!course) {
-                logger.warn(`Course not found with ID: ${courseId}`);
-                return res.status(404).json({ message: 'Course not found' });
-            }
-
-            if (isCourseFull(course)) {
-                logger.warn(`Course ${courseId} is full`);
-                return res.status(400).json({ message: 'Course is full' });
-            }
-
-            const student = await Student.findOne({ _id: studentId });
-            if (!student) {
-                logger.warn(`Student not found with ID: ${studentId}`);
-                return res.status(404).json({ message: 'Student not found' });
-            }
-
-            if (isAlreadyRegistered(student, course)) {
-                logger.warn(`Student ${studentId} is already registered for course ${courseId}`);
-                return res.status(400).json({ message: 'Student is already registered for this course' });
-            }
-
-            await registerStudentToCourse(student, course);
-
+    
+            const course = await findCourse(courseId, res);
+            if (!course) return;
+    
+            if (isCourseFull(course, res)) return;
+    
+            const student = await findStudent(studentId, res);
+            if (!student) return;
+    
+            if (isAlreadyRegistered(student, course, res)) return;
+    
+            if (exceedsCreditLimit(student, course, res)) return;
+    
+            await registerStudent(student, course);
+    
             logger.info(`Registration successful: Student ${studentId} -> Course ${courseId}`);
             res.status(200).json({ message: 'Registration successful', student, course });
         } catch (error) {
@@ -180,40 +171,80 @@ exports.courseController = {
 const isAlreadyRegistered = (student, course) =>
     student.registeredCourses.some((c) => c._id.equals(course._id));
 
-const isCourseFull = (course) => course.enrolledStudents.length >= course.maxStudents;
+const isCourseFull = (course, res) => {
+    if (course.enrolledStudents.length >= course.maxStudents) {
+        logger.warn(`Course ${course.courseId} is full`);
+        res.status(400).json({ message: 'Course is full' });
+        return true;
+    }
+    return false;
+};
 
-const registerStudentToCourse = async (student, course) => {
+const findStudent = async (studentId, res) => {
+    const student = await Student.findOne({ _id: studentId });
+    if (!student) {
+        logger.warn(`Student not found with ID: ${studentId}`);
+        res.status(404).json({ message: 'Student not found' });
+        return null;
+    }
+    return student;
+};
+
+const registerStudent = async (student, course) => {
     student.registeredCourses.push(course._id);
     course.enrolledStudents.push(student._id);
     await Promise.all([student.save(), course.save()]);
+    logger.info(`Student ${student._id} successfully registered for course ${course.courseId}`);
 };
 
 const deregisterStudentFromCourse = async (student, course) => {
     student.registeredCourses = student.registeredCourses.filter((c) => !c._id.equals(course._id));
     course.enrolledStudents = course.enrolledStudents.filter((s) => !s._id.equals(student._id));
     await Promise.all([student.save(), course.save()]);
+    logger.info(`Student ${student._id} successfully deregistered from course ${course.courseId}`);
 };
 
-    async function generateNextCourseId() {
-        const lastCourse = await Course.findOne().sort({ courseId: -1 });
-        return lastCourse ? lastCourse.courseId + 1 : 1;
+const generateNextCourseId = async () => {
+    const lastCourse = await Course.findOne().sort({ courseId: -1 });
+    return lastCourse ? lastCourse.courseId + 1 : 1;
+};
+
+const prepareCourseData = (body, courseId) => ({
+    ...body,
+    courseId,
+});
+
+const saveCourse = async (courseData) => {
+    const course = new Course(courseData);
+    return course.save();
+};
+
+const formatCourseResponse = (course) => {
+    const courseObject = course.toObject();
+    return {
+        ...courseObject,
+        numberOfStudents: courseObject.enrolledStudents ? courseObject.enrolledStudents.length : 0,
+    };
+};
+
+const exceedsCreditLimit = (student, course, res) => {
+    const totalCredits = student.registeredCourses.reduce((sum, c) => sum + c.creditPoints, 0);
+    if (totalCredits + course.creditPoints > 20) {
+        logger.warn(`Student ${student._id} exceeds the credit limit with course ${course.courseId}`);
+        res.status(400).json({ message: 'Registration exceeds the credit limit of 20 points' });
+        return true;
     }
-    
-    function prepareCourseData(body, courseId) {
-        return { ...body, courseId };
+    return false;
+};
+
+const findCourse = async (courseId, res) => {
+    const course = await Course.findOne({ courseId });
+    if (!course) {
+        logger.warn(`Course not found with ID: ${courseId}`);
+        res.status(404).json({ message: 'Course not found' });
+        return null;
     }
-    
-    async function saveCourse(courseData) {
-        const course = new Course(courseData);
-        return course.save();
-    }
-    
-    function formatCourseResponse(course) {
-        const courseObject = course.toObject();
-        return {
-            ...courseObject,
-            numberOfStudents: courseObject.enrolledStudents ? courseObject.enrolledStudents.length : 0,
-        };
-    }
+    return course;
+};
 
 

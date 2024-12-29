@@ -56,12 +56,12 @@ exports.studentController = {
 
     async getRegisteredCourses(req, res) {
         try {
-            const { id } = req.user; // Extract student ID from the token
+            const { id } = req.user; 
             logger.info(`Fetching registered courses for student ID: ${id}`);
 
             const student = await Student.findOne({ _id: id }).populate({
                 path: 'registeredCourses',
-                select: 'courseId name instructor creditPoints', // Exclude maxStudents and enrolledStudents
+                select: 'courseId name instructor creditPoints', 
             });
 
             if (!student) {

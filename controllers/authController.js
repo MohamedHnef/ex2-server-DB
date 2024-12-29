@@ -83,13 +83,3 @@ const createUser = async (userType, userData) => {
     }
 };
 
-const findUserByEmail = async (userType, email) => {
-    if (userType === 'student') {
-        return Student.findOne({ email });
-    }
-    return Faculty.findOne({ email });
-};
-
-const generateToken = (user) => {
-    return jwt.sign({ id: user._id, userType: user.userType }, JWT_SECRET, { expiresIn: '10m' });
-};

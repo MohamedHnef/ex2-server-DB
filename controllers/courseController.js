@@ -190,3 +190,13 @@ const deregisterStudentFromCourse = async (student, course) => {
     course.enrolledStudents = course.enrolledStudents.filter((s) => !s._id.equals(student._id));
     await Promise.all([student.save(), course.save()]);
 };
+
+const prepareCourseData = (course) => {
+    const { enrolledStudents, ...rest } = course.toObject();
+    return {
+        ...rest,
+        numberOfStudents: enrolledStudents.length,
+        enrolledStudents,
+    };
+};
+

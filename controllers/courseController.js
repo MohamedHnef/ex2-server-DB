@@ -46,16 +46,23 @@ exports.courseController = {
         try {
             const { id } = req.params;
             logger.info(`Deleting course with ID: ${id}`);
+    
             const course = await Course.findOneAndDelete({ courseId: id });
             if (!course) {
                 logger.warn(`Course not found for deletion with ID: ${id}`);
                 return res.status(404).json({ message: 'Course not found' });
             }
+    
+            await Student.updateMany(
+                { registeredCourses: course._id }, 
+                { $pull: { registeredCourses: course._id } } 
+            );
+    
             logger.info(`Deleted course successfully: ${course.name}`);
-            res.status(200).json({ message: 'Course deleted successfully' });
+            res.status(200).json({ message: 'Course deleted successfully and unregistered from all students' });
         } catch (error) {
             logger.error(`Error deleting course: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
-    },
+    } 
 };

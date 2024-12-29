@@ -5,9 +5,19 @@ exports.courseController = {
     async addCourse(req, res) {
         try {
             logger.info('Adding a new course');
-            const course = new Course(req.body);
+
+            const lastCourse = await Course.findOne().sort({ courseId: -1 });
+            const nextCourseId = lastCourse ? lastCourse.courseId + 1 : 1;
+
+            const courseData = {
+                ...req.body,
+                courseId: nextCourseId,
+            };
+
+            const course = new Course(courseData);
             await course.save();
-            logger.info(`Added course successfully: ${course.name}`);
+
+            logger.info(`Course added successfully with ID: ${course.courseId}`);
             res.status(201).json(course);
         } catch (error) {
             logger.error(`Error adding course: ${error.message}`);

@@ -56,10 +56,14 @@ exports.studentController = {
 
     async getRegisteredCourses(req, res) {
         try {
-            const { id } = req.user; 
+            const { id } = req.user; // Extract student ID from the token
             logger.info(`Fetching registered courses for student ID: ${id}`);
 
-            const student = await Student.findOne({ _id: id }).populate('registeredCourses');
+            const student = await Student.findOne({ _id: id }).populate({
+                path: 'registeredCourses',
+                select: 'courseId name instructor creditPoints', // Exclude maxStudents and enrolledStudents
+            });
+
             if (!student) {
                 logger.warn(`Student not found with ID: ${id}`);
                 return res.status(404).json({ message: 'Student not found' });

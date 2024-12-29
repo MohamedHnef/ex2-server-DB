@@ -7,22 +7,19 @@ exports.courseController = {
         try {
             logger.info('Adding a new course');
     
-            
-            const lastCourse = await Course.findOne().sort({ courseId: -1 });
-            const nextCourseId = lastCourse ? lastCourse.courseId + 1 : 1;
+            const nextCourseId = await generateNextCourseId(); // Generate the next course ID
+            const courseData = prepareCourseData(req.body, nextCourseId); // Prepare the course data
     
-            const courseData = { ...req.body, courseId: nextCourseId }; 
-            const course = new Course(courseData); 
-            await course.save(); 
+            const savedCourse = await saveCourse(courseData); // Save the course to the database
+            const responseCourse = formatCourseResponse(savedCourse); // Format the response
     
-            logger.info(`Course added successfully with ID: ${course.courseId}`);
-            res.status(201).json(course); 
+            logger.info(`Course added successfully with ID: ${responseCourse.courseId}`);
+            res.status(201).json(responseCourse); // Send the response
         } catch (error) {
             logger.error(`Error adding course: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
-    }
-    ,
+    } ,
     
     async updateCourse(req, res) {
         try {
@@ -196,5 +193,27 @@ const deregisterStudentFromCourse = async (student, course) => {
     course.enrolledStudents = course.enrolledStudents.filter((s) => !s._id.equals(student._id));
     await Promise.all([student.save(), course.save()]);
 };
+
+    async function generateNextCourseId() {
+        const lastCourse = await Course.findOne().sort({ courseId: -1 });
+        return lastCourse ? lastCourse.courseId + 1 : 1;
+    }
+    
+    function prepareCourseData(body, courseId) {
+        return { ...body, courseId };
+    }
+    
+    async function saveCourse(courseData) {
+        const course = new Course(courseData);
+        return course.save();
+    }
+    
+    function formatCourseResponse(course) {
+        const courseObject = course.toObject();
+        return {
+            ...courseObject,
+            numberOfStudents: courseObject.enrolledStudents ? courseObject.enrolledStudents.length : 0,
+        };
+    }
 
 

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../constants');
+const logger = require('../utils/logger');
 
 exports.authMiddleware = {
     verifyToken(req, res, next) {
@@ -34,15 +35,9 @@ exports.authMiddleware = {
     },
 
     ownsResource(req, res, next) {
-        const userId = req.user.id; 
-        const { studentId } = req.body;
-    
-        if (userId !== studentId) {
-            logger.warn(`Access denied: User ${userId} tried to act on behalf of student ${studentId}`);
-            return res.status(403).json({ message: 'Access denied. You can only manage your own courses.' });
-        }
-    
+        const tokenStudentId = req.user.id; 
+        req.body.studentId = tokenStudentId; 
         next();
-    },
+    }
     
 };

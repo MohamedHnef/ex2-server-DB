@@ -1,5 +1,7 @@
 const Course = require('../models/courseModel');
 const logger = require('../utils/logger');
+const Student = require('../models/studentModel');
+
 
 exports.courseController = {
     async addCourse(req, res) {

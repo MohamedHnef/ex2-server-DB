@@ -1,21 +1,12 @@
 const Course = require('../models/courseModel');
-const logger = require('../utils/logger');
 const Student = require('../models/studentModel');
-
+const logger = require('../utils/logger');
 
 exports.courseController = {
     async addCourse(req, res) {
         try {
             logger.info('Adding a new course');
-
-            const lastCourse = await Course.findOne().sort({ courseId: -1 });
-            const nextCourseId = lastCourse ? lastCourse.courseId + 1 : 1;
-
-            const courseData = {
-                ...req.body,
-                courseId: nextCourseId,
-            };
-
+            const courseData = await prepareCourseData(req.body);
             const course = new Course(courseData);
             await course.save();
 
@@ -23,7 +14,7 @@ exports.courseController = {
             res.status(201).json(course);
         } catch (error) {
             logger.error(`Error adding course: ${error.message}`);
-            res.status(400).json({ error: error.message });
+            res.status(500).json({ error: error.message });
         }
     },
 
@@ -32,15 +23,17 @@ exports.courseController = {
             const { id } = req.params;
             logger.info(`Updating course with ID: ${id}`);
             const course = await Course.findOneAndUpdate({ courseId: id }, req.body, { new: true });
+
             if (!course) {
-                logger.warn(`Course not found for update with ID: ${id}`);
+                logger.warn(`Course not found with ID: ${id}`);
                 return res.status(404).json({ message: 'Course not found' });
             }
+
             logger.info(`Updated course successfully: ${course.name}`);
             res.status(200).json(course);
         } catch (error) {
             logger.error(`Error updating course: ${error.message}`);
-            res.status(400).json({ error: error.message });
+            res.status(500).json({ error: error.message });
         }
     },
 
@@ -48,23 +41,152 @@ exports.courseController = {
         try {
             const { id } = req.params;
             logger.info(`Deleting course with ID: ${id}`);
-    
             const course = await Course.findOneAndDelete({ courseId: id });
+
             if (!course) {
-                logger.warn(`Course not found for deletion with ID: ${id}`);
+                logger.warn(`Course not found with ID: ${id}`);
                 return res.status(404).json({ message: 'Course not found' });
             }
-    
-            await Student.updateMany(
-                { registeredCourses: course._id }, 
-                { $pull: { registeredCourses: course._id } } 
-            );
-    
-            logger.info(`Deleted course successfully: ${course.name}`);
-            res.status(200).json({ message: 'Course deleted successfully and unregistered from all students' });
+
+            await unregisterStudentsFromCourse(course);
+            logger.info(`Course deleted successfully: ${course.name}`);
+            res.status(200).json({ message: 'Course deleted successfully' });
         } catch (error) {
             logger.error(`Error deleting course: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
-    } 
+    },
+
+    async registerForCourse(req, res) {
+        try {
+            const { id: courseId } = req.params;
+            const studentId = req.user.id; 
+            logger.info(`Registering student ${studentId} for course ${courseId}`);
+
+            const course = await Course.findOne({ courseId });
+            if (!course) {
+                logger.warn(`Course not found with ID: ${courseId}`);
+                return res.status(404).json({ message: 'Course not found' });
+            }
+
+            if (isCourseFull(course)) {
+                logger.warn(`Course ${courseId} is full`);
+                return res.status(400).json({ message: 'Course is full' });
+            }
+
+            const student = await Student.findOne({ _id: studentId });
+            if (!student) {
+                logger.warn(`Student not found with ID: ${studentId}`);
+                return res.status(404).json({ message: 'Student not found' });
+            }
+
+            if (isAlreadyRegistered(student, course)) {
+                logger.warn(`Student ${studentId} is already registered for course ${courseId}`);
+                return res.status(400).json({ message: 'Student is already registered for this course' });
+            }
+
+            await registerStudentToCourse(student, course);
+
+            logger.info(`Registration successful: Student ${studentId} -> Course ${courseId}`);
+            res.status(200).json({ message: 'Registration successful', student, course });
+        } catch (error) {
+            logger.error(`Error registering for course: ${error.message}`);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    async deregisterFromCourse(req, res) {
+        try {
+            const { id: courseId } = req.params;
+            const studentId = req.user.id; 
+            logger.info(`Deregistering student ${studentId} from course ${courseId}`);
+
+            const course = await Course.findOne({ courseId });
+            if (!course) {
+                logger.warn(`Course not found with ID: ${courseId}`);
+                return res.status(404).json({ message: 'Course not found' });
+            }
+
+            const student = await Student.findOne({ _id: studentId });
+            if (!student) {
+                logger.warn(`Student not found with ID: ${studentId}`);
+                return res.status(404).json({ message: 'Student not found' });
+            }
+
+            if (!isAlreadyRegistered(student, course)) {
+                logger.warn(`Student ${studentId} is not registered for course ${courseId}`);
+                return res.status(400).json({ message: 'Student is not registered for this course' });
+            }
+
+            await deregisterStudentFromCourse(student, course);
+
+            logger.info(`Deregistration successful: Student ${studentId} -> Course ${courseId}`);
+            res.status(200).json({ message: 'Deregistration successful', student, course });
+        } catch (error) {
+            logger.error(`Error deregistering from course: ${error.message}`);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    async getAllCoursesAndStudents(req, res) {
+        try {
+            logger.info('Fetching all courses with their registered students');
+            const courses = await Course.find()
+                .populate('enrolledStudents', 'studentId name email address year')
+                .select('courseId name instructor creditPoints maxStudents enrolledStudents');
+
+            const transformedCourses = courses.map((course) => ({
+                ...course.toObject(),
+                numberOfStudents: course.enrolledStudents.length,
+            }));
+
+            res.status(200).json(transformedCourses);
+        } catch (error) {
+            logger.error(`Error fetching courses: ${error.message}`);
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    async getCourseAndStudents(req, res) {
+        try {
+            const { id: courseId } = req.params;
+            logger.info(`Fetching course details for ID: ${courseId}`);
+
+            const course = await Course.findOne({ courseId })
+                .populate('enrolledStudents', 'studentId name email address year')
+                .select('courseId name instructor creditPoints maxStudents enrolledStudents');
+
+            if (!course) {
+                logger.warn(`Course not found with ID: ${courseId}`);
+                return res.status(404).json({ message: 'Course not found' });
+            }
+
+            const transformedCourse = {
+                ...course.toObject(),
+                numberOfStudents: course.enrolledStudents.length,
+            };
+
+            res.status(200).json(transformedCourse);
+        } catch (error) {
+            logger.error(`Error fetching course details: ${error.message}`);
+            res.status(500).json({ error: error.message });
+        }
+    },
+};
+
+const isAlreadyRegistered = (student, course) =>
+    student.registeredCourses.some((c) => c._id.equals(course._id));
+
+const isCourseFull = (course) => course.enrolledStudents.length >= course.maxStudents;
+
+const registerStudentToCourse = async (student, course) => {
+    student.registeredCourses.push(course._id);
+    course.enrolledStudents.push(student._id);
+    await Promise.all([student.save(), course.save()]);
+};
+
+const deregisterStudentFromCourse = async (student, course) => {
+    student.registeredCourses = student.registeredCourses.filter((c) => !c._id.equals(course._id));
+    course.enrolledStudents = course.enrolledStudents.filter((s) => !s._id.equals(student._id));
+    await Promise.all([student.save(), course.save()]);
 };

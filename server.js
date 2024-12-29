@@ -6,7 +6,6 @@ const port = process.env.PORT || 3000;
 
 const { courseRouter } = require('./routers/courseRouter');
 const { studentRouter } = require('./routers/studentRouter');
-const { facultyRouter } = require('./routers/facultyRouter');
 
 const { authRouter } = require('./routers/authRouter');
 const { authMiddleware } = require('./middlewares/authMiddleware');
@@ -18,7 +17,6 @@ app.use(logger("dev"));
 app.use('/api/auth', authRouter);
 app.use('/api/courses', authMiddleware.verifyToken, courseRouter);
 app.use('/api/students', authMiddleware.verifyToken, studentRouter);
-app.use('/api/faculty', authMiddleware.verifyToken, facultyRouter);
 
 
 app.get('/', (req, res) => {

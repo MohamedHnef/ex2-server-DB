@@ -16,7 +16,6 @@ exports.authMiddleware = {
                 logger.warn(`Invalid token: ${err.message}`);
                 return res.status(401).json({ message: 'Invalid token' });
             }
-            logger.info(`Token verified: ${JSON.stringify(decoded)}`);
             req.user = decoded; 
             next();
         });

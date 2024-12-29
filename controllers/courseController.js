@@ -6,10 +6,11 @@ exports.courseController = {
     async addCourse(req, res) {
         try {
             logger.info('Adding a new course');
-            const courseData = await prepareCourseData(req.body);
+    
+            const courseData = req.body; 
             const course = new Course(courseData);
             await course.save();
-
+    
             logger.info(`Course added successfully with ID: ${course.courseId}`);
             res.status(201).json(course);
         } catch (error) {
@@ -17,7 +18,7 @@ exports.courseController = {
             res.status(500).json({ error: error.message });
         }
     },
-
+    
     async updateCourse(req, res) {
         try {
             const { id } = req.params;
@@ -191,12 +192,4 @@ const deregisterStudentFromCourse = async (student, course) => {
     await Promise.all([student.save(), course.save()]);
 };
 
-const prepareCourseData = (course) => {
-    const { enrolledStudents, ...rest } = course.toObject();
-    return {
-        ...rest,
-        numberOfStudents: enrolledStudents.length,
-        enrolledStudents,
-    };
-};
 

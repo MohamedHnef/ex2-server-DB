@@ -60,34 +60,38 @@ exports.courseController = {
         }
     },
 
+
     async registerForCourse(req, res) {
         try {
             const { id: courseId } = req.params;
             const studentId = req.user.id;
     
-            logger.info(`Registering student ${studentId} for course ${courseId}`);
+            logger.info(`Attempting to register student ${studentId} for course ${courseId}`);
     
             const course = await findCourse(courseId, res);
             if (!course) return;
     
-            if (isCourseFull(course, res)) return;
-    
             const student = await findStudent(studentId, res);
             if (!student) return;
     
-            if (isAlreadyRegistered(student, course, res)) return;
+            if (isCourseFull(course, res)) return;
+            if (isAlreadyRegistered(student, course)) {
+                logger.warn(`Student ${student._id} is already registered for course ${course.courseId}`);
+                res.status(400).json({ message: 'Student is already registered for this course' });
+                return;
+            }
     
             if (exceedsCreditLimit(student, course, res)) return;
     
             await registerStudent(student, course);
-    
-            logger.info(`Registration successful: Student ${studentId} -> Course ${courseId}`);
+            logger.info(`Successfully registered student ${studentId} for course ${courseId}`);
             res.status(200).json({ message: 'Registration successful', student, course });
         } catch (error) {
-            logger.error(`Error registering for course: ${error.message}`);
+            logger.error(`Error during course registration: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
-    },
+    }
+    ,
 
     async deregisterFromCourse(req, res) {
         try {

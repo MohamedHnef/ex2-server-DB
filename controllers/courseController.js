@@ -7,14 +7,14 @@ exports.courseController = {
         try {
             logger.info('Adding a new course');
     
-            const nextCourseId = await generateNextCourseId(); // Generate the next course ID
-            const courseData = prepareCourseData(req.body, nextCourseId); // Prepare the course data
+            const nextCourseId = await generateNextCourseId();
+            const courseData = prepareCourseData(req.body, nextCourseId);
     
-            const savedCourse = await saveCourse(courseData); // Save the course to the database
-            const responseCourse = formatCourseResponse(savedCourse); // Format the response
+            const savedCourse = await saveCourse(courseData); 
+            const responseCourse = formatCourseResponse(savedCourse); 
     
             logger.info(`Course added successfully with ID: ${responseCourse.courseId}`);
-            res.status(201).json(responseCourse); // Send the response
+            res.status(201).json(responseCourse); 
         } catch (error) {
             logger.error(`Error adding course: ${error.message}`);
             res.status(500).json({ error: error.message });
@@ -81,47 +81,55 @@ exports.courseController = {
                 return;
             }
     
-            if (exceedsCreditLimit(student, course, res)) return;
+            if (student.pointsTracker + course.creditPoints > 20) {
+                logger.warn(`Student ${student._id} exceeds the credit limit with course ${course.courseId}`);
+                res.status(400).json({ message: 'Registration exceeds the credit limit of 20 points' });
+                return;
+            }
     
-            await registerStudent(student, course);
+            student.registeredCourses.push(course._id);
+            student.pointsTracker += course.creditPoints;
+            course.enrolledStudents.push(student._id);
+    
+            await Promise.all([student.save(), course.save()]);
+    
             logger.info(`Successfully registered student ${studentId} for course ${courseId}`);
             res.status(200).json({ message: 'Registration successful', student, course });
         } catch (error) {
             logger.error(`Error during course registration: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
-    }
-    ,
+    },
 
-    async deregisterFromCourse(req, res) {
+    async  deregisterFromCourse(req, res) {
         try {
             const { id: courseId } = req.params;
-            const studentId = req.user.id; 
+            const studentId = req.user.id;
+    
             logger.info(`Deregistering student ${studentId} from course ${courseId}`);
-
-            const course = await Course.findOne({ courseId });
-            if (!course) {
-                logger.warn(`Course not found with ID: ${courseId}`);
-                return res.status(404).json({ message: 'Course not found' });
-            }
-
-            const student = await Student.findOne({ _id: studentId });
-            if (!student) {
-                logger.warn(`Student not found with ID: ${studentId}`);
-                return res.status(404).json({ message: 'Student not found' });
-            }
-
+    
+            const course = await findCourse(courseId, res);
+            if (!course) return;
+    
+            const student = await findStudent(studentId, res);
+            if (!student) return;
+    
             if (!isAlreadyRegistered(student, course)) {
-                logger.warn(`Student ${studentId} is not registered for course ${courseId}`);
-                return res.status(400).json({ message: 'Student is not registered for this course' });
+                logger.warn(`Student ${student._id} is not registered for course ${course.courseId}`);
+                res.status(400).json({ message: 'Student is not registered for this course' });
+                return;
             }
-
-            await deregisterStudentFromCourse(student, course);
-
-            logger.info(`Deregistration successful: Student ${studentId} -> Course ${courseId}`);
+    
+            student.registeredCourses = student.registeredCourses.filter((c) => !c.equals(course._id));
+            student.pointsTracker -= course.creditPoints;
+            course.enrolledStudents = course.enrolledStudents.filter((s) => !s.equals(student._id));
+    
+            await Promise.all([student.save(), course.save()]);
+    
+            logger.info(`Successfully deregistered student ${studentId} from course ${courseId}`);
             res.status(200).json({ message: 'Deregistration successful', student, course });
         } catch (error) {
-            logger.error(`Error deregistering from course: ${error.message}`);
+            logger.error(`Error during course deregistration: ${error.message}`);
             res.status(500).json({ error: error.message });
         }
     },
